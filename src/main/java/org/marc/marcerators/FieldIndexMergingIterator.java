@@ -2,16 +2,16 @@ package org.marc.marcerators;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Splitter;
 import org.apache.accumulo.core.data.*;
 import org.apache.accumulo.core.iterators.IteratorEnvironment;
 import org.apache.accumulo.core.iterators.SortedKeyValueIterator;
 import org.apache.accumulo.core.iterators.WrappingIterator;
+import org.apache.commons.lang3.StringUtils;
 
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.*;
 
 /**
  * Purpose: Using a document range will deep copy and seek to all FI keys
@@ -25,12 +25,15 @@ public class FieldIndexMergingIterator extends WrappingIterator {
 
 
     public static final String NULL = "\u0000";
+    public static final String FIELDS_TO_SKIP = "FIELDS_TO_SKIP";
     Key topKey = null;
     Value topValue = null;
 
-    private IteratorEnvironment env = new MockIteratorEnvironment();
+    private IteratorEnvironment env = null;
 
-    protected String shard;
+    private String shard;
+
+    private List<String> fieldsToSkip = new ArrayList<>();
 
     Collection<SortedKeyValueIterator<Key, Value>> deepCopiedSources = new ArrayList<>();
     public void seek(Range range, Collection<ByteSequence> columnFamilies, boolean inclusive) throws IOException {
@@ -68,6 +71,15 @@ public class FieldIndexMergingIterator extends WrappingIterator {
         return topValue;
     }
 
+
+    @Override
+    public void init(SortedKeyValueIterator<Key, Value> source, Map<String, String> options, IteratorEnvironment iterEnv) throws IOException {
+        super.init(source,options,iterEnv);
+        env = iterEnv;
+
+        Splitter.on(",").split( options.getOrDefault(FIELDS_TO_SKIP,"LOAD_DATE,RAW_FILE,TERM_COUNT") ).forEach(fieldsToSkip::add);
+    }
+
     /**
      * Merge the deep copied sources to simulate field index iteration
      * @param doc document
@@ -94,11 +106,13 @@ public class FieldIndexMergingIterator extends WrappingIterator {
         if (notFound){
             return null;
         }
-        return doc;
+        if (StringUtils.isNotBlank(doc.docId))
+            return doc;
+        return null;
     }
 
 
-    protected String docToJson(Document doc) throws JsonProcessingException {
+    private String docToJson(Document doc) throws JsonProcessingException {
         final ObjectMapper objectMapper = new ObjectMapper();
 
         final String json = objectMapper.writeValueAsString(doc);
@@ -115,12 +129,21 @@ public class FieldIndexMergingIterator extends WrappingIterator {
         return new Range(topKey,true,endKey,false);
     }
 
+    private boolean notGeneratedField(final String inFieldName){
+        for(String fn : fieldsToSkip){
+            if ( inFieldName.equals( fn ) ){
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Find the document specified by the sought source
      * @return Document or null
      * @throws IOException I/O Exception accessing accumulo data.
      */
-    protected Document findTop() throws IOException {
+    private Document findTop() throws IOException {
         Document doc = null;
 
         if (getSource().hasTop()){
@@ -135,17 +158,17 @@ public class FieldIndexMergingIterator extends WrappingIterator {
                 // field name and value
                 final String [] fieldNameAndValue = getSource().getTopKey().getColumnQualifier().toString().split("\u0000");
 
-                doc.documentFields.put( fieldNameAndValue[0], fieldNameAndValue[1] );
+                if (!fieldsToSkip.contains(fieldNameAndValue[0])) {
+                    doc.documentFields.put( fieldNameAndValue[0], fieldNameAndValue[1] );
+                    // deep copy our source and seek to the fi\x00fieldname to merge.
+                    SortedKeyValueIterator<Key, Value> source = getSource().deepCopy(env);
 
-                // deep copy our source and seek to the fi\x00fieldname to merge.
-                SortedKeyValueIterator<Key, Value> source = getSource().deepCopy(env);
+                    doc.docId = dtUid[1];
 
-                doc.docId = dtUid[1];
+                    source.seek(generateRange(fieldNameAndValue[0], fieldNameAndValue[1], dtUid[0]), Collections.EMPTY_LIST, false);
 
-                source.seek(generateRange(fieldNameAndValue[0],fieldNameAndValue[1],dtUid[0]), Collections.EMPTY_LIST,false);
-
-                deepCopiedSources.add(source);
-
+                    deepCopiedSources.add(source);
+                }
                 getSource().next();
             }
         }

@@ -73,6 +73,7 @@ public class TestFieldIndexMergingIterator {
         fieldNameAndValues.put("FIELDA","value");
         fieldNameAndValues.put("FIELDB","value4");
         fieldNameAndValues.put("FIELDC","value3");
+        fieldNameAndValues.put("LOAD_DATE","value3");
         fieldNameAndValues.put("FIELDD","value2");
 
         final String docId = UUID.randomUUID().toString();
@@ -84,6 +85,7 @@ public class TestFieldIndexMergingIterator {
         skvi.seek(new Range(topKey,true,topKey.followingKey(PartialKey.ROW_COLFAM),false), sequences, true);
 
         Assert.assertTrue( skvi.hasTop() );
+        fieldNameAndValues.remove("LOAD_DATE");
         Assert.assertTrue(verifyDocument(fieldNameAndValues,docId,skvi.getTopValue().toString()));
     }
 
@@ -205,5 +207,41 @@ public class TestFieldIndexMergingIterator {
 
         Assert.assertFalse( skvi.hasTop() );
     }
+
+
+    @Test
+    public void testFindDocOnlySkipped() throws IOException {
+
+        Map<String,String> fieldNameAndValues = new HashMap<>();
+        fieldNameAndValues.put("LOAD_DATE","value3");
+
+        final String docId = UUID.randomUUID().toString();
+
+        SortedKeyValueIterator<Key,Value> skvi = buildIterator( generateData(fieldNameAndValues,docId));
+
+        Collection<ByteSequence> sequences = Collections.emptyList();
+        Key topKey = new Key(DEFAULT_SHARD,DEFAULT_DATATYPE + NULL + docId);
+        skvi.seek(new Range(topKey,true,topKey.followingKey(PartialKey.ROW_COLFAM),false), sequences, true);
+
+        Assert.assertFalse( skvi.hasTop() );
+    }
+
+    @Test
+    public void testEmptyDoc() throws IOException {
+
+        Map<String,String> fieldNameAndValues = new HashMap<>();
+        fieldNameAndValues.put("LOAD_DATE","value3");
+
+        final String docId = UUID.randomUUID().toString();
+
+        SortedKeyValueIterator<Key,Value> skvi = buildIterator( generateData(fieldNameAndValues,docId));
+
+        Collection<ByteSequence> sequences = Collections.emptyList();
+        Key topKey = new Key(DEFAULT_SHARD,DEFAULT_DATATYPE + NULL + docId);
+        skvi.seek(new Range(topKey,true,topKey.followingKey(PartialKey.ROW_COLFAM),false), sequences, true);
+
+        Assert.assertFalse( skvi.hasTop() );
+    }
+
 }
 
