@@ -1,11 +1,12 @@
 package org.marc.marcerators;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.accumulo.core.data.*;
 import org.apache.accumulo.core.iterators.IteratorEnvironment;
 import org.apache.accumulo.core.iterators.SortedKeyValueIterator;
 import org.apache.accumulo.core.iterators.WrappingIterator;
-import org.apache.htrace.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.htrace.fasterxml.jackson.databind.ObjectMapper;
+
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -28,7 +29,7 @@ public class FieldIndexMergingIterator extends WrappingIterator {
     Value topValue = null;
 
     private IteratorEnvironment env = new MockIteratorEnvironment();
-    
+
     protected String shard;
 
     Collection<SortedKeyValueIterator<Key, Value>> deepCopiedSources = new ArrayList<>();

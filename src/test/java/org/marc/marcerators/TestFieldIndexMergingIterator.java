@@ -1,13 +1,12 @@
 package org.marc.marcerators;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.accumulo.core.data.*;
 import org.apache.accumulo.core.iterators.*;
-import org.apache.htrace.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.security.SecureRandom;
 import java.util.*;
 import java.util.stream.IntStream;
 
