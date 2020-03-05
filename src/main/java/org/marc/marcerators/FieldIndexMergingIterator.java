@@ -76,7 +76,7 @@ public class FieldIndexMergingIterator extends WrappingIterator {
     public void init(SortedKeyValueIterator<Key, Value> source, Map<String, String> options, IteratorEnvironment iterEnv) throws IOException {
         super.init(source,options,iterEnv);
         env = iterEnv;
-
+        // skip fields
         Splitter.on(",").split( options.getOrDefault(FIELDS_TO_SKIP,"LOAD_DATE,RAW_FILE,TERM_COUNT") ).forEach(fieldsToSkip::add);
     }
 
